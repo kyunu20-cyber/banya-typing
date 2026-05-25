@@ -163,58 +163,64 @@ function loadCurrent() {
   session.load(lines);
 }
 
-// ── 렌더 (typing.works 스타일 — 단일 라인 덮어쓰기) ────────
-let lastCommittedLen = 0;
+// ── 렌더 — 증분 업데이트 (변경된 칸만 텍스트/클래스 갱신) ─────
+// 매 탭마다 DOM을 통째 재구축하지 않음 → 모바일 반응 속도 대폭 향상
 let lastLineIndex = -1;
+let chSpans = []; // 현재 라인의 .ch 스팬들
+
+function rebuildLine(target) {
+  typingAreaEl.replaceChildren();
+  chSpans = new Array(target.length);
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < target.length; i++) {
+    const span = document.createElement('span');
+    span.className = 'ch';
+    if (target[i] === ' ') span.classList.add('space');
+    span.textContent = target[i];
+    chSpans[i] = span;
+    frag.appendChild(span);
+  }
+  typingAreaEl.appendChild(frag);
+}
 
 function renderTyping(s) {
   const { target, committed, composing, lineIndex } = s;
 
-  // 새 줄로 넘어가면 카운터 리셋
-  if (lineIndex !== lastLineIndex) {
-    lastCommittedLen = 0;
+  // 라인 바뀜 / 길이 달라짐 → 한 번만 전체 재구축
+  if (lineIndex !== lastLineIndex || chSpans.length !== target.length) {
+    rebuildLine(target);
     lastLineIndex = lineIndex;
   }
-  // Backspace로 줄어들면 lastCommittedLen도 따라 내림 — 재입력 시 애니메이션 재실행 보장
-  if (committed.length < lastCommittedLen) {
-    lastCommittedLen = committed.length;
-  }
 
-  // 본문 한 줄을 글자별 span으로 — 친 자리는 정타/오타 색으로 덮어씀
-  const frag = document.createDocumentFragment();
-  const composingIdx = committed.length; // 조합 중 음절이 들어갈 자리
+  // 각 span의 텍스트/클래스만 diff 업데이트
+  const composingIdx = committed.length;
   for (let i = 0; i < target.length; i++) {
+    const span = chSpans[i];
     const expected = target[i];
-    const span = document.createElement('span');
-    span.className = 'ch';
-    if (expected === ' ') span.classList.add('space');
+    let text;
+    let ok = false, bad = false, pending = false, current = false;
 
     if (i < committed.length) {
-      // 이미 결정된 자리 — 사용자가 친 글자로 덮어씀
       const got = committed[i];
-      const isOk = got === expected;
-      span.textContent = got;
-      span.classList.add(isOk ? 'ok' : 'bad');
-      // 이전에 이미 처리된 글자는 애니메이션 비활성 (반복 깜빡임 방지)
-      if (i < lastCommittedLen) span.style.animation = 'none';
+      text = got;
+      if (got === expected) ok = true; else bad = true;
     } else if (i === composingIdx && composing) {
-      // 조합 중 음절을 그 자리에 옅게 미리보기
-      span.textContent = composing;
-      span.classList.add('pending', 'current');
+      text = composing;
+      pending = true; current = true;
     } else if (i === composingIdx) {
-      // 다음 칠 차례 — 가이드 글자 + 커서
-      span.textContent = expected;
-      span.classList.add('current');
+      text = expected;
+      current = true;
     } else {
-      // 아직 안 친 가이드 글자
-      span.textContent = expected;
+      text = expected;
     }
-    frag.appendChild(span);
-  }
-  typingAreaEl.innerHTML = '';
-  typingAreaEl.appendChild(frag);
 
-  lastCommittedLen = committed.length;
+    if (span.textContent !== text) span.textContent = text;
+    // classList.toggle은 force 인자로 멱등 — 동일 상태면 DOM 변경 없음
+    span.classList.toggle('ok', ok);
+    span.classList.toggle('bad', bad);
+    span.classList.toggle('pending', pending);
+    span.classList.toggle('current', current);
+  }
 
   // 통계 + 진행률
   const doneChars = completedLineChars() + committed.length;

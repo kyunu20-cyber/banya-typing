@@ -941,8 +941,12 @@ body {
     transition: none;
   }
   .typing-area .ch.bad {
-    /* 흔들림 애니메이션도 짧게 */
     animation-duration: 80ms;
+  }
+  /* 커서 깜빡임 애니메이션 제거 — 무한 repaint가 모바일 GPU 점유 */
+  .typing-area .ch.current::before,
+  .typing-area .ch.current::after {
+    animation: none;
   }
   /* 가상 키보드 — 모바일에서 메인 입력이므로 크게 */
   .virtual-keyboard {
