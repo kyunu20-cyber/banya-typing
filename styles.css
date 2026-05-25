@@ -948,20 +948,24 @@ body {
   .typing-area .ch.current::after {
     animation: none;
   }
-  /* 가상 키보드 — 모바일에서 메인 입력이므로 크게 */
+  /* 가상 키보드 — 모바일 메인 입력. 탭 영역 크게 */
   .virtual-keyboard {
     position: sticky;
-    bottom: 8px;
-    margin-top: 14px;
-    padding: 8px 6px 12px;
+    bottom: 4px;
+    margin-top: 12px;
+    padding: 6px 4px 10px;
     box-shadow: 0 -4px 16px rgba(28, 26, 23, 0.06);
   }
-  .kb-row { gap: 4px; }
+  .kb-row { gap: 3px; }
   .kb-key {
-    min-height: 52px;
+    min-height: 58px;     /* 44px Apple 권장보다 여유 있게 */
+    padding: 4px 0;
     border-radius: 7px;
   }
-  .kb-jamo { font-size: 19px; }
+  .kb-jamo { font-size: 20px; }
   .kb-sub { display: none; }
-  .kb-key.space { font-size: 11px; }
+  .kb-key.space {
+    font-size: 11px;
+    min-height: 50px;
+  }
 }

@@ -1,8 +1,8 @@
-import { sections } from './sutra.js?v=30';
-import { TypingSession } from './typing.js?v=30';
-import { Stats } from './stats.js?v=30';
-import { Mokak } from './mokak.js?v=30';
-import { Keyboard } from './keyboard.js?v=30';
+import { sections } from './sutra.js?v=31';
+import { TypingSession } from './typing.js?v=31';
+import { Stats } from './stats.js?v=31';
+import { Mokak } from './mokak.js?v=31';
+import { Keyboard } from './keyboard.js?v=31';
 
 // 모바일 감지 — 좁은 화면 + 터치 primary 둘 다 만족할 때만
 // (큰 태블릿/터치 노트북은 물리 키보드 쓰니까 제외)
