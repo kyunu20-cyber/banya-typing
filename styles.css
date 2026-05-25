@@ -332,8 +332,11 @@ body {
   /* 폰트 사이즈를 본문과 맞춰야 IME 후보창이 본문 글자 근처에 뜸 */
   font-family: var(--font-han);
   font-size: 48px;
-  /* 클릭은 받지 않음 — 빈 영역 클릭 시 main.js의 document.click이 focus 잡음 */
-  pointer-events: none;
+  /* pointer-events: auto — 입력을 직접 받음.
+     데스크톱: 본문 영역 탭하면 즉시 포커스.
+     모바일: 가상 키보드 자동 팝업 (탭으로 트리거되어야 iOS Safari가 keyboard 띄움). */
+  pointer-events: auto;
+  /* 모바일에서 input zoom 방지용 (iOS Safari가 16px 미만이면 줌인) — 모바일 미디어쿼리에서 처리 */
 }
 
 /* ===== Meaning ===== */
@@ -516,7 +519,37 @@ body {
   gap: 8px;
   justify-content: flex-end;
   margin-top: 4px;
+  flex-wrap: wrap;
 }
+
+#modal-share .icon {
+  margin-right: 4px;
+}
+
+/* 공유 후 토스트 */
+.share-toast {
+  position: absolute;
+  bottom: -44px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--bg-card);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  animation: toast-in 200ms ease-out;
+}
+
+.share-toast[hidden] { display: none; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.modal-card { position: relative; }
 
 .btn {
   appearance: none;
@@ -652,10 +685,57 @@ body {
   font-weight: 600;
 }
 
+/* 모드 선택 버튼 (인트로) */
+.intro-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.intro-mode {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg-card);
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 80ms ease;
+}
+
+.intro-mode:hover {
+  border-color: var(--gold);
+  background: rgba(184, 134, 11, 0.05);
+}
+
+.intro-mode:active {
+  transform: translateY(1px);
+}
+
+.intro-mode-name {
+  font-family: var(--font-han);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.intro-mode-desc {
+  font-size: 12px;
+  color: var(--bronze);
+  letter-spacing: 0.02em;
+}
+
 .intro-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
@@ -679,4 +759,70 @@ body {
   padding: 12px 28px;
   font-size: 14px;
   letter-spacing: 0.05em;
+}
+
+/* ===== 모바일 (실험적) ====================================== */
+@media (max-width: 768px) {
+  body {
+    padding: 12px 14px 32px;
+  }
+  .stage {
+    gap: 18px;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .brand-hanja { font-size: 20px; }
+  .brand-han { font-size: 11px; }
+  .controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .mini-btn span:not(.icon) {
+    /* 모바일에선 텍스트 라벨 숨기고 아이콘만 — 가로 공간 확보 */
+    display: none;
+  }
+  .mini-select {
+    font-size: 11px;
+  }
+  .reading-head {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .progress { align-self: stretch; }
+  .progress-bar { width: 100%; }
+  .typing-area {
+    font-size: 26px;
+    line-height: 1.7;
+    padding: 14px 4px 16px;
+    min-height: 4em;
+  }
+  .typing-input {
+    /* 모바일 가상 키보드 줌 방지 (16px 이상이어야 iOS Safari가 안 줌인) */
+    font-size: 16px;
+  }
+  .stats {
+    gap: 18px;
+    padding: 10px 0;
+  }
+  .stat-value { font-size: 18px; }
+
+  .intro-card {
+    padding: 28px 22px 24px;
+    max-height: 92vh;
+  }
+  .intro-title { font-size: 28px; }
+  .intro-sub { font-size: 12px; margin-bottom: 18px; }
+  .intro-section { padding: 12px 0; }
+  .intro-section p, .intro-list { font-size: 13px; line-height: 1.7; }
+  .intro-mode { padding: 12px 14px; }
+  .intro-mode-name { font-size: 15px; }
+  .intro-mode-desc { font-size: 11px; }
+
+  .modal-card {
+    padding: 22px 22px 18px;
+  }
+  .modal-title { font-size: 20px; }
+  .modal-score-value { font-size: 22px; }
 }

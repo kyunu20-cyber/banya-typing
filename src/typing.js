@@ -24,6 +24,24 @@
 //     - currentIndex 직접 ++/-- X (committed.length로만 도출)
 //     - composing을 committed에 합치는 어떤 처리도 X
 
+// 한글 음절 + 자모 → 받침 추가된 음절 (예: "애" + "ㄱ" → "액")
+// 합쳐서 만들 수 없으면 null. 이미 받침 있는 음절도 null.
+const JONG_LIST = [
+  '', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ',
+  'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ',
+  'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
+];
+function mergeJongseong(syllable, jamo) {
+  if (!syllable || !jamo || syllable.length !== 1 || jamo.length !== 1) return null;
+  const code = syllable.charCodeAt(0) - 0xac00;
+  if (code < 0 || code > 11171) return null;
+  const jong = code % 28;
+  if (jong !== 0) return null; // 이미 받침 있음
+  const idx = JONG_LIST.indexOf(jamo);
+  if (idx <= 0) return null;
+  return String.fromCharCode(0xac00 + code + idx);
+}
+
 export class TypingSession {
   constructor({ inputEl, onUpdate, onLineComplete, onComplete, onStrike }) {
     this.inputEl = inputEl;
@@ -45,6 +63,7 @@ export class TypingSession {
     this.firstKeyAt = null;
 
     this._rafId = 0;
+    this._skipPendingEnd = null; // 강제 commit 후 IME가 뒤늦게 fire하는 compositionend 무시용
     this._bind();
   }
 
@@ -56,32 +75,62 @@ export class TypingSession {
     });
 
     el.addEventListener('compositionupdate', (e) => {
-      // 조합 중 자모 미리보기만. committed/judges는 절대 안 건드림.
       this.composing = e.data || '';
       this._scheduleRender();
 
-      // ⭐ 한글 IME는 마지막 음절을 자동 finalize하지 않음 —
-      //   committed + composing이 target과 완전 일치하면 blur로 강제 종결.
-      //   blur → compositionend(syllable) 자연 발생 → _commit → _advanceLine 흐름.
       const target = this.lines[this.lineIndex] || '';
+      if (!target || !this.composing) return;
+
+      // Case A — 정상: committed + composing이 target과 정확히 일치
+      if (this.committed + this.composing === target) {
+        this._forceCommitTail(this.composing);
+        return;
+      }
+
+      // Case B — 일부 IME가 받침을 새 composition으로 분리한 경우:
+      //   예) target="...액", IME가 "애" 먼저 compositionend → 새 compositionstart("ㄱ")
+      //   committed 마지막 글자에 composing 자모(받침)를 합쳐 target 마지막 글자가 되면 merge.
       if (
-        target &&
-        this.composing &&
-        this.committed + this.composing === target
+        this.committed.length === target.length &&
+        this.committed.length > 0
       ) {
-        el.blur();
+        const lastCommitted = this.committed[this.committed.length - 1];
+        const expectedLast = target[target.length - 1];
+        const merged = mergeJongseong(lastCommitted, this.composing);
+        if (merged && merged === expectedLast) {
+          // 직전에 받침 없이 잘못 commit된 글자를 받침 추가해 교체
+          const i = this.committed.length - 1;
+          const prevOk = this.judges[i];
+          this.committed = this.committed.slice(0, -1) + merged;
+          this.judges[i] = true;
+          if (prevOk === false) {
+            this.totalWrong -= 1;
+            this.totalCorrect += 1;
+          }
+          this._skipPendingEnd = this.composing;
+          this.composing = '';
+          this.isComposing = false;
+          el.value = '';
+          // committed === target 이미 보장됨 → _advanceLine만 호출
+          this._advanceLine();
+          this._scheduleRender();
+        }
       }
     });
 
     el.addEventListener('compositionend', (e) => {
       this.isComposing = false;
-      // e.data가 비어 있는 일부 IME를 위한 fallback
       const syllable = e.data || el.value || '';
       this.composing = '';
-
-      // ⭐ 핵심: IME 버퍼 즉시 리셋. 다음 음절은 깨끗한 상태에서 시작.
-      // 이 한 줄이 "value 누적 → race → 글자 밀림"을 차단함.
       el.value = '';
+
+      // 위 compositionupdate에서 이미 force-commit된 음절은 무시
+      if (this._skipPendingEnd !== null && this._skipPendingEnd === syllable) {
+        this._skipPendingEnd = null;
+        this._scheduleRender();
+        return;
+      }
+      this._skipPendingEnd = null;
 
       if (syllable) this._commit(syllable);
       this._scheduleRender();
@@ -100,17 +149,51 @@ export class TypingSession {
       this._scheduleRender();
     });
 
-    // Backspace만 직접 처리 — 그 외 keydown은 일체 손대지 않음
+    // keydown — Backspace 롤백 + Space로 라인 강제 진행
     el.addEventListener('keydown', (e) => {
+      // ── Space / Enter: 한 줄 다 친 뒤 누르면 강제 진행 ──
+      if (e.key === ' ' || e.key === 'Enter') {
+        const target = this.lines[this.lineIndex] || '';
+        if (!target) return;
+
+        if (this.committed === target) {
+          e.preventDefault();
+          this._advanceLine();
+          return;
+        }
+
+        // composing 합치면 일치 — 즉시 직접 commit (blur 안 함, 빠름)
+        if (
+          this.composing &&
+          this.committed + this.composing === target
+        ) {
+          e.preventDefault();
+          this._forceCommitTail(this.composing);
+          return;
+        }
+        return; // 그 외엔 평소 input으로 처리
+      }
+
+      // ── Backspace: input이 빈 상태에서만 committed 롤백 ──
       if (e.key !== 'Backspace') return;
-      if (this.isComposing) return;     // 조합 중이면 IME가 자모 단위로 삭제
-      if (el.value !== '') return;      // 영문 한 글자 지우는 중 — 브라우저에 위임
-      // input이 빈 상태의 Backspace = committed에서 직접 한 글자 롤백
-      e.preventDefault();               // 브라우저 뒤로가기 방지
+      if (this.isComposing) return;
+      if (el.value !== '') return;
+      e.preventDefault();
       if (this.committed.length === 0) return;
       this._popLast();
       this._scheduleRender();
     });
+  }
+
+  // composing을 committed로 즉시 옮기는 공통 헬퍼.
+  // IME가 뒤늦게 fire하는 compositionend는 _skipPendingEnd로 무시.
+  _forceCommitTail(tail) {
+    if (!tail) return;
+    this._skipPendingEnd = tail;
+    this.composing = '';
+    this.isComposing = false;
+    this.inputEl.value = '';
+    this._commit(tail);
   }
 
   _commit(str) {

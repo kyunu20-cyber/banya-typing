@@ -80,21 +80,39 @@ export class Mokak {
     this._savePrefs();
   }
 
+  // 사용자 첫 제스처(인트로 시작 버튼 등)에서 호출 — AC 즉시 resume + buffer 디코드 선행.
+  // 이게 호출되어 있으면 첫 타격부터 latency 거의 0.
+  warmup() {
+    if (!this.enabled) return Promise.resolve();
+    this._ensureCtx();
+    if (!this.ctx) return Promise.resolve();
+    const resume =
+      this.ctx.state === 'suspended'
+        ? this.ctx.resume().catch(() => {})
+        : Promise.resolve();
+    return Promise.all([resume, this._loadBuffer()]);
+  }
+
   strike({ wrong = false } = {}) {
     if (!this.enabled) return;
     this._ensureCtx();
     if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
-    }
-    // 버퍼 미준비면 비동기 로드 후 한 번만 — 다음부터는 즉시 재생
-    if (!this.buffer) {
-      this._loadBuffer().then((b) => {
-        if (b) this._play(b, wrong);
-      });
+    // 둘 다 ready면 즉시 재생 (hot path — 한 번 워밍업되면 매번 여기로 옴)
+    if (this.buffer && this.ctx.state === 'running') {
+      this._play(this.buffer, wrong);
       return;
     }
-    this._play(this.buffer, wrong);
+    // 콜드 패스 — resume + buffer 둘 다 갖춰지면 재생
+    const resume =
+      this.ctx.state === 'suspended'
+        ? this.ctx.resume().catch(() => {})
+        : Promise.resolve();
+    const load = this.buffer
+      ? Promise.resolve(this.buffer)
+      : this._loadBuffer();
+    Promise.all([resume, load]).then(([, b]) => {
+      if (b) this._play(b, wrong);
+    });
   }
 
   _play(buffer, wrong) {

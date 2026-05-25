@@ -1,7 +1,7 @@
-import { sections } from './sutra.js?v=23';
-import { TypingSession } from './typing.js?v=23';
-import { Stats } from './stats.js?v=23';
-import { Mokak } from './mokak.js?v=23';
+import { sections } from './sutra.js?v=26';
+import { TypingSession } from './typing.js?v=26';
+import { Stats } from './stats.js?v=26';
+import { Mokak } from './mokak.js?v=26';
 
 // ── DOM ─────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -255,6 +255,7 @@ function onSessionComplete() {
   }
 
   // ─── 그 외: 모달 띄우고 자동 진행 (오타 있으면 결과 확인 / 마지막 섹션이면 의역 학습) ───
+  restoreFullModal();
   modalTitle.textContent = sectionTitle.textContent;
   modalWpm.textContent = `${wpm} 타`;
   modalAcc.textContent = `${acc}%`;
@@ -317,8 +318,16 @@ meaningToggle.addEventListener('click', () => {
 soundToggle.addEventListener('click', () => {
   const on = mokak.toggle();
   soundToggle.setAttribute('aria-pressed', String(on));
-  // 즉시 한 번 울려 피드백
-  if (on) mokak.strike({ wrong: false });
+  if (on) {
+    // 토글로 켤 때도 같은 워밍업 — 첫 피드백부터 latency 0
+    mokak.warmup().then(() => mokak.strike({ wrong: false }));
+  }
+});
+
+// 중단 버튼 — ESC와 동일 동작
+const stopBtn = $('#stop-btn');
+stopBtn.addEventListener('click', () => {
+  showPartialResults();
 });
 
 modalRetry.addEventListener('click', () => {
@@ -361,10 +370,10 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// 중단 — 타이핑 도중 ESC. 지금까지 친 분량으로 점수 모달 (auto-advance 없음)
+// 중단 — 타이핑 도중 ESC/⏹. 점수 + 공유만 (의역/best 비교 없음)
 function showPartialResults() {
   if (!modal.hidden) return;
-  if (session.firstKeyAt === null) return; // 아무것도 안 친 상태면 무시
+  if (session.firstKeyAt === null) return;
 
   const totalStrokes = session.totalCorrect + session.totalWrong;
   const elapsed = (Date.now() - session.firstKeyAt) / 1000;
@@ -372,28 +381,181 @@ function showPartialResults() {
   const acc = totalStrokes
     ? Math.round((session.totalCorrect / totalStrokes) * 100)
     : 100;
-  const prevBest = stats.getBest(stats.currentKey);
 
-  modalEyebrow.textContent = '중단';
-  modalTitle.textContent = sectionTitle.textContent;
+  // ⭐ 중단 모달: 타이틀은 브랜드만, 의역/best 비교는 모두 숨김
+  modalEyebrow.textContent = '';
+  modalEyebrow.hidden = true;
+  modalTitle.textContent = '반야심경 타자';
   modalWpm.textContent = `${wpm} 타`;
   modalAcc.textContent = `${acc}%`;
-  modalWpmBest.textContent = prevBest ? `이전 최고 ${prevBest.wpm} 타` : '';
-  modalAccBest.textContent = prevBest ? `이전 최고 ${prevBest.acc}%` : '';
-  modalMeaning.textContent = meaningText.textContent;
-
-  // 중단은 best 갱신 X (완주 아니므로) — stats.finish 호출 안 함
-  // 버튼: 다시(현재 섹션) / 닫기 또는 다음
-  if (state.mode === 'short' && state.sectionIndex < sections.length - 1) {
-    modalNext.textContent = '다음 섹션';
-  } else if (state.mode === 'long') {
-    modalNext.textContent = '처음으로';
-  } else {
-    modalNext.textContent = '닫기';
-  }
+  modalWpmBest.textContent = 'by 1kproject';
+  modalWpmBest.hidden = false;
+  modalAccBest.textContent = '';
+  modalAccBest.hidden = true;
+  modalMeaning.hidden = true;
+  modalNext.textContent = '닫기';
 
   modal.hidden = false;
-  cancelAutoAdvance(); // 중단 모달은 자동 진행 안 함
+  cancelAutoAdvance();
+}
+
+// 완료 모달 표시할 때 중단에서 숨겼던 요소들 다시 복구
+function restoreFullModal() {
+  modalEyebrow.hidden = false;
+  modalWpmBest.hidden = false;
+  modalAccBest.hidden = false;
+  modalMeaning.hidden = false;
+}
+
+// ─── 공유 기능 ───────────────────────────────────────────────
+const modalShare = $('#modal-share');
+const shareToast = $('#share-toast');
+
+modalShare.addEventListener('click', () => {
+  shareScore();
+});
+
+function showShareToast(msg) {
+  shareToast.textContent = msg;
+  shareToast.hidden = false;
+  clearTimeout(showShareToast._t);
+  showShareToast._t = setTimeout(() => {
+    shareToast.hidden = true;
+  }, 2400);
+}
+
+async function shareScore() {
+  const blob = await generateShareImage();
+  const file = new File([blob], 'banya-score.png', { type: 'image/png' });
+  const shareText = '반야심경 타자 by 1kproject';
+  const shareUrl = window.location.href;
+
+  // 1순위 — Web Share API (모바일/지원 데스크톱)
+  if (
+    navigator.canShare &&
+    navigator.canShare({ files: [file] })
+  ) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: '반야심경 타자',
+        text: shareText,
+        url: shareUrl,
+      });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // 사용자 취소
+    }
+  }
+
+  // 2순위 — 이미지 다운로드 + 링크 클립보드 복사
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'banya-score.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    copied = true;
+  } catch {}
+  showShareToast(
+    copied ? '이미지 저장 + 링크 복사됨' : '이미지 저장됨 (링크는 직접 복사해주세요)'
+  );
+}
+
+// 점수 카드 이미지 생성 — 1080×1080 정사각 (인스타 피드/스토리/카톡 호환)
+async function generateShareImage() {
+  const totalStrokes = session.totalCorrect + session.totalWrong;
+  const elapsed = session.firstKeyAt
+    ? (Date.now() - session.firstKeyAt) / 1000
+    : 1;
+  const wpm = Math.round((totalStrokes * 60) / Math.max(1, elapsed));
+  const acc = totalStrokes
+    ? Math.round((session.totalCorrect / totalStrokes) * 100)
+    : 100;
+
+  const W = 1080, H = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 배경 — 한지 톤
+  ctx.fillStyle = '#F7F4EE';
+  ctx.fillRect(0, 0, W, H);
+
+  // 외곽 보더 (살짝)
+  ctx.strokeStyle = '#E6E0D2';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(60, 60, W - 120, H - 120);
+
+  // 한자 般若心經
+  ctx.fillStyle = '#1C1A17';
+  ctx.font = '800 150px "Nanum Myeongjo", "Batang", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('般若心經', W / 2, 280);
+
+  // 한글 타이틀
+  ctx.font = '700 56px "Nanum Myeongjo", serif';
+  ctx.fillStyle = '#4A443C';
+  ctx.fillText('반야심경 타자', W / 2, 360);
+
+  // 금색 디바이더
+  ctx.strokeStyle = '#B8860B';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 120, 410);
+  ctx.lineTo(W / 2 + 120, 410);
+  ctx.stroke();
+
+  // 점수 2칸
+  const labelY = 540;
+  const valueY = 680;
+  const unitY = 740;
+  const colL = W / 2 - 200;
+  const colR = W / 2 + 200;
+
+  ctx.fillStyle = '#8B7D6B';
+  ctx.font = '500 30px "Noto Sans KR", sans-serif';
+  ctx.fillText('분당 타수', colL, labelY);
+  ctx.fillText('정확도', colR, labelY);
+
+  ctx.fillStyle = '#1C1A17';
+  ctx.font = '700 130px "Nanum Myeongjo", serif';
+  ctx.fillText(String(wpm), colL, valueY);
+  ctx.fillText(String(acc) + '%', colR, valueY);
+
+  ctx.fillStyle = '#8B7D6B';
+  ctx.font = '500 28px "Noto Sans KR", sans-serif';
+  ctx.fillText('타', colL, unitY);
+
+  // 하단 디바이더
+  ctx.strokeStyle = '#E6E0D2';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(180, 880);
+  ctx.lineTo(W - 180, 880);
+  ctx.stroke();
+
+  // by 1kproject
+  ctx.fillStyle = '#8B7D6B';
+  ctx.font = '500 30px "Noto Sans KR", sans-serif';
+  ctx.fillText('by 1kproject', W / 2, 940);
+
+  // URL
+  ctx.fillStyle = '#B8860B';
+  ctx.font = '500 22px "Noto Sans KR", monospace';
+  ctx.fillText(window.location.host || 'banya-typing', W / 2, 985);
+
+  return await new Promise((resolve) =>
+    canvas.toBlob(resolve, 'image/png', 0.95)
+  );
 }
 
 // 빈 영역 클릭 시 입력에 포커스
@@ -411,15 +573,25 @@ document.addEventListener('click', (e) => {
   session.focus();
 });
 
-// 입력이 포커스를 잃으면 즉시 복귀 (모달/인트로 떠있을 땐 X)
-// ⭐ IME 조합 중에는 refocus 금지 — 한자 후보창 띄울 때 잠깐 blur되는데
-//    여기서 refocus하면 composition이 끊겨서 Backspace 연속 삭제가 멈춤
-inputEl.addEventListener('blur', () => {
+// 입력이 포커스를 잃으면 즉시 복귀 — 단, IME 조합 / 모달 / 인트로 / 인터랙티브 요소로 갈 땐 안 함
+// ⭐ select/button으로 포커스 옮긴 직후 refocus하면 드롭다운이 바로 닫혀버리는 race를 차단
+inputEl.addEventListener('blur', (e) => {
   if (!modal.hidden) return;
   if (!introEl?.hidden) return;
   if (session.isComposing) return;
+  // 포커스가 다른 인터랙티브 요소로 넘어가는 경우 — refocus 차단 (select 드롭다운 보호)
+  const next = e.relatedTarget;
+  if (next && next !== document.body) {
+    const tag = next.tagName;
+    if (tag === 'SELECT' || tag === 'BUTTON' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'A') {
+      return;
+    }
+  }
   setTimeout(() => {
-    if (session.isComposing) return; // 다음 tick에서도 한 번 더 확인
+    if (session.isComposing) return;
+    const active = document.activeElement;
+    // 다음 tick에서도 다른 요소가 포커스 잡고 있으면 양보
+    if (active && active !== document.body && active !== inputEl) return;
     session.focus();
   }, 0);
 });
@@ -433,7 +605,6 @@ function setMeaning(open) {
 // ── 인트로 ─────────────────────────────────────────────────
 const INTRO_KEY = 'banya-typing:intro-seen';
 const introEl = $('#intro');
-const introStartBtn = $('#intro-start');
 const introSkip = $('#intro-dont-show');
 const restartBtn = $('#restart-btn');
 
@@ -445,20 +616,26 @@ function hideIntro() {
   session.focus();
 }
 
-function doStart() {
+function doStart(mode) {
   if (introSkip.checked) {
     try { localStorage.setItem(INTRO_KEY, '1'); } catch {}
   }
+  if (mode && mode !== state.mode) {
+    state.mode = mode;
+    modeSelect.value = mode;
+  }
+  // ⭐ 사용자 첫 클릭 시점에 AudioContext resume + 목탁 wav 디코드 선행
+  // 이래야 첫 타격부터 latency 없이 즉시 재생
+  mokak.warmup();
   hideIntro();
+  loadCurrent();
 }
-introStartBtn.addEventListener('click', doStart);
-// pointerdown으로도 받아서 click이 누락되는 케이스 방지
-introStartBtn.addEventListener('pointerdown', (e) => {
-  // 다음 frame에서 click이 정상 발생하면 click 핸들러가 처리.
-  // click이 안 오는 경우(blur 가로채기 등) 대비 fallback
-  setTimeout(() => {
-    if (!introEl.hidden) doStart();
-  }, 50);
+
+// 인트로의 모드 버튼 3개 — 각자 모드 골라 바로 시작
+document.querySelectorAll('.intro-mode').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    doStart(btn.dataset.mode);
+  });
 });
 
 restartBtn.addEventListener('click', () => {
