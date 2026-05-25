@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=10" />
   </head>
   <body>
     <main class="stage">
@@ -83,6 +83,8 @@
         </aside>
       </section>
 
+      <div id="virtual-keyboard" class="virtual-keyboard" hidden></div>
+
       <footer class="stats">
         <div class="stat">
           <span class="stat-label">분당 타수</span>
@@ -105,49 +107,56 @@
       <div class="intro-card">
         <div class="intro-eyebrow">般若波羅蜜多心經</div>
         <h1 class="intro-title" id="intro-title">반야심경 타자</h1>
-        <p class="intro-sub">한 글자씩 타이핑하며 260자를 마음에 새깁니다</p>
+        <p class="intro-sub">부처님 오신 날 · 마음으로 새기는 260자</p>
 
-        <section class="intro-section intro-hero">
-          <p class="intro-lead">
-            화면 가운데 옅은 글자를 그대로 따라 치면 됩니다.<br />
-            한 음절마다 <b>목탁 소리</b>가 울리고, 검은 글씨로 채워져요.
+        <div id="mobile-notice" class="mobile-notice" hidden>
+          <b>모바일은 가상 키보드</b>로 입력합니다 (천지인 등 시스템 한글 키보드 호환 문제). 안정적인 경험은 <b>PC + 두벌식</b>을 권장합니다.
+        </div>
+
+        <section class="intro-section">
+          <h2 class="intro-h2">반야심경이란</h2>
+          <p>
+            『반야바라밀다심경(般若波羅蜜多心經)』은 600권에 달하는 방대한 반야경 전체의
+            정수를 단 260여 자로 압축한 경전입니다. 동아시아 불교에서 가장 널리 외워지는
+            짧고도 깊은 경으로, "공(空)"의 가르침을 통해 모든 괴로움에서 벗어나는 길을
+            보입니다.
           </p>
         </section>
 
         <section class="intro-section">
-          <h2 class="intro-h2">처음이라면 이것만</h2>
-          <ul class="intro-list intro-list-clean">
-            <li><b>오타</b>는 빨간색 · <b>Backspace</b>로 지우세요</li>
-            <li>한 줄 끝났는데 안 넘어가면 <b>스페이스 한 번</b></li>
-            <li>뜻 보고 싶을 땐 상단 <b>📜 뜻</b> 버튼 (또는 Tab 키)</li>
-            <li>중간에 점수 보고 싶으면 <b>⏹ 중단</b> (또는 Esc)</li>
-            <li>소리 끄려면 상단 <b>🔔 목탁</b> 버튼</li>
+          <h2 class="intro-h2">이렇게 진행됩니다</h2>
+          <ul class="intro-list">
+            <li>본문이 옅은 회색으로 보이면, 한 글자씩 따라 치면 검정으로 채워집니다.</li>
+            <li>한 음절을 완성할 때마다 <b>🔔 목탁</b> 소리가 한 번 울립니다.</li>
+            <li>오타는 붉게 표시되고, <b>Backspace</b>로 지울 수 있습니다.</li>
+            <li>한 줄을 다 친 뒤 안 넘어가면 <b>Space</b>를 한 번 누르세요.</li>
+            <li>의역이 궁금하면 <b>📜 뜻</b> 또는 <b>Tab</b> 키.</li>
+            <li>중단하고 점수 보고 싶으면 <b>⏹ 중단</b> 또는 <b>Esc</b>.</li>
           </ul>
         </section>
 
         <section class="intro-section">
-          <h2 class="intro-h2">어떻게 시작할까요?</h2>
+          <h2 class="intro-h2">모드를 골라 시작하세요</h2>
           <div class="intro-modes">
             <button class="intro-mode" type="button" data-mode="sentence">
-              <span class="intro-mode-name">한 문장씩</span>
-              <span class="intro-mode-desc">한 줄만 짧게 — 처음이면 추천</span>
+              <span class="intro-mode-name">한 문장</span>
+              <span class="intro-mode-desc">한 줄씩 또박또박 — 짧게 부담 없이</span>
             </button>
             <button class="intro-mode" type="button" data-mode="short">
-              <span class="intro-mode-name">한 단락씩</span>
-              <span class="intro-mode-desc">의미 단락 하나 · 한 호흡으로</span>
+              <span class="intro-mode-name">짧은 글</span>
+              <span class="intro-mode-desc">의미 단락 한 호흡 (11개 섹션)</span>
             </button>
             <button class="intro-mode" type="button" data-mode="long">
-              <span class="intro-mode-name">전체 완주</span>
-              <span class="intro-mode-desc">처음부터 끝까지 260자 한 번에</span>
+              <span class="intro-mode-name">긴 글</span>
+              <span class="intro-mode-desc">260자 처음부터 끝까지 완주</span>
             </button>
           </div>
-          <p class="intro-hint">선택하면 바로 시작됩니다. 모드는 언제든 상단에서 바꿀 수 있어요.</p>
         </section>
 
         <div class="intro-actions">
           <label class="intro-skip">
             <input type="checkbox" id="intro-dont-show" />
-            <span>다음에 안내 다시 안 보기</span>
+            <span>다시 보지 않기</span>
           </label>
         </div>
       </div>
@@ -192,6 +201,6 @@
       </div>
     </div>
 
-    <script type="module" src="src/main.js?v=28"></script>
+    <script type="module" src="src/main.js?v=29"></script>
   </body>
 </html>

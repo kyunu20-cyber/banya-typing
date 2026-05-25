@@ -1,7 +1,14 @@
-import { sections } from './sutra.js?v=28';
-import { TypingSession } from './typing.js?v=28';
-import { Stats } from './stats.js?v=28';
-import { Mokak } from './mokak.js?v=28';
+import { sections } from './sutra.js?v=29';
+import { TypingSession } from './typing.js?v=29';
+import { Stats } from './stats.js?v=29';
+import { Mokak } from './mokak.js?v=29';
+import { Keyboard } from './keyboard.js?v=29';
+
+// 모바일 감지 — 좁은 화면 + 터치 primary 둘 다 만족할 때만
+// (큰 태블릿/터치 노트북은 물리 키보드 쓰니까 제외)
+const IS_MOBILE =
+  window.matchMedia &&
+  window.matchMedia('(max-width: 900px) and (pointer: coarse)').matches;
 
 // ── DOM ─────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -54,6 +61,38 @@ const session = new TypingSession({
   // 목탁은 compositionupdate(자모)·input(영문/Backspace)에서만 — keydown 일체 사용 X
   onStrike: () => mokak.strike({ wrong: false }),
 });
+
+// ── 가상 키보드 ───────────────────────────────────────────
+// 모바일: 시스템 키보드 차단(inputmode="none") + 가상 키보드 메인 입력
+// PC: 가상 키보드 숨김 (물리 키보드 사용)
+const kbRoot = $('#virtual-keyboard');
+let keyboard = null;
+if (IS_MOBILE) {
+  // 시스템 키보드 안 뜨게 — 입력은 우리가 가상 키보드로 받음
+  inputEl.setAttribute('inputmode', 'none');
+  inputEl.setAttribute('readonly', 'readonly');
+  // 자동 포커스 안 줘도 됨 (탭으로 자모 받음)
+  kbRoot.hidden = false;
+  keyboard = new Keyboard(kbRoot, {
+    interactive: true,
+    onTap: (e) => {
+      // 사용자 첫 탭에서 목탁 워밍업 (이미 했으면 no-op)
+      mokak.warmup();
+      if (e.type === 'jamo') {
+        session.virtualInputJamo(e.jamo);
+        mokak.strike({ wrong: false });
+      } else if (e.type === 'space') {
+        session.virtualSpace();
+        mokak.strike({ wrong: false });
+      } else if (e.type === 'backspace') {
+        session.virtualBackspace();
+      }
+    },
+  });
+  // 모바일 안내 박스 노출
+  const mobileNotice = $('#mobile-notice');
+  if (mobileNotice) mobileNotice.hidden = false;
+}
 
 // ❌ keydown 핸들러 완전 제거 — e.key 기반 문자/사운드 처리 모두 입력 이벤트에 위임
 

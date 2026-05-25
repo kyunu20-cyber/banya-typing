@@ -1,62 +1,8 @@
-// 두벌식 가상 키보드 + 다음에 눌러야 할 자모 하이라이트
-// 한글 음절을 초·중·종성으로 분해하고, 현재 IME 조합 상태와 비교해 다음 자모를 계산한다.
+// 두벌식 가상 키보드 — 탭으로 자모/Space/Backspace 입력.
+// 모바일에서 시스템 키보드(천지인 등) 대신 이걸 메인 입력으로 사용.
 
-// ─── 자모 테이블 ─────────────────────────────────────────────
-const CHO = [
-  'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ',
-  'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
-];
-const JUNG = [
-  'ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅘ',
-  'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ',
-  'ㅣ',
-];
-const JONG = [
-  '', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ',
-  'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ',
-  'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
-];
-
-// 복합 자모 분해 (받침 + 모음)
-const DECOMPOSE = {
-  ㄲ: ['ㄱ', 'ㄱ'],
-  ㄳ: ['ㄱ', 'ㅅ'],
-  ㄵ: ['ㄴ', 'ㅈ'],
-  ㄶ: ['ㄴ', 'ㅎ'],
-  ㄺ: ['ㄹ', 'ㄱ'],
-  ㄻ: ['ㄹ', 'ㅁ'],
-  ㄼ: ['ㄹ', 'ㅂ'],
-  ㄽ: ['ㄹ', 'ㅅ'],
-  ㄾ: ['ㄹ', 'ㅌ'],
-  ㄿ: ['ㄹ', 'ㅍ'],
-  ㅀ: ['ㄹ', 'ㅎ'],
-  ㅄ: ['ㅂ', 'ㅅ'],
-  ㅆ: ['ㅅ', 'ㅅ'],
-  ㅘ: ['ㅗ', 'ㅏ'],
-  ㅙ: ['ㅗ', 'ㅐ'],
-  ㅚ: ['ㅗ', 'ㅣ'],
-  ㅝ: ['ㅜ', 'ㅓ'],
-  ㅞ: ['ㅜ', 'ㅔ'],
-  ㅟ: ['ㅜ', 'ㅣ'],
-  ㅢ: ['ㅡ', 'ㅣ'],
-};
-
-// 두벌식 매핑: 자모 → { key: 'A', shift: false }
-const JAMO_TO_KEY = {
-  ㅂ: ['Q', false], ㅈ: ['W', false], ㄷ: ['E', false], ㄱ: ['R', false],
-  ㅅ: ['T', false], ㅛ: ['Y', false], ㅕ: ['U', false], ㅑ: ['I', false],
-  ㅐ: ['O', false], ㅔ: ['P', false],
-  ㅁ: ['A', false], ㄴ: ['S', false], ㅇ: ['D', false], ㄹ: ['F', false],
-  ㅎ: ['G', false], ㅗ: ['H', false], ㅓ: ['J', false], ㅏ: ['K', false],
-  ㅣ: ['L', false],
-  ㅋ: ['Z', false], ㅌ: ['X', false], ㅊ: ['C', false], ㅍ: ['V', false],
-  ㅠ: ['B', false], ㅜ: ['N', false], ㅡ: ['M', false],
-  // 쌍자음 + ㅒ ㅖ
-  ㅃ: ['Q', true], ㅉ: ['W', true], ㄸ: ['E', true], ㄲ: ['R', true],
-  ㅆ: ['T', true], ㅒ: ['O', true], ㅖ: ['P', true],
-};
-
-// 키보드 시각 레이아웃 (영문 + 두벌식 자모 병기)
+// ─── 키 정의 ────────────────────────────────────────────────
+// [id, 기본 자모, shift 자모(있으면)]
 const ROWS = [
   [
     ['Q', 'ㅂ', 'ㅃ'], ['W', 'ㅈ', 'ㅉ'], ['E', 'ㄷ', 'ㄸ'], ['R', 'ㄱ', 'ㄲ'],
@@ -71,18 +17,42 @@ const ROWS = [
   [
     ['SHIFT', '⇧', ''], ['Z', 'ㅋ', ''], ['X', 'ㅌ', ''], ['C', 'ㅊ', ''],
     ['V', 'ㅍ', ''], ['B', 'ㅠ', ''], ['N', 'ㅜ', ''], ['M', 'ㅡ', ''],
+    ['BACKSPACE', '⌫', ''],
   ],
-  [['SPACE', '', '']],
+  [['SPACE', '간격', '']],
 ];
 
-// ─── 한글 분해 ────────────────────────────────────────────────
+// 영문 키 → 자모 매핑 (PC 물리 키보드 next-hint용)
+const KEY_TO_JAMO = {};
+ROWS.forEach((row) => row.forEach(([k, j, sj]) => {
+  if (j && k.length === 1) KEY_TO_JAMO[k] = { jamo: j, shiftJamo: sj || null };
+}));
+
+// 자모 → 키 역매핑 (다음에 칠 키 하이라이트용)
+const JAMO_TO_KEY = {};
+ROWS.forEach((row) => row.forEach(([k, j, sj]) => {
+  if (j && k.length === 1) {
+    if (!JAMO_TO_KEY[j]) JAMO_TO_KEY[j] = { key: k, shift: false };
+    if (sj) JAMO_TO_KEY[sj] = { key: k, shift: true };
+  }
+}));
+
+// ─── 한글 분해 (다음 자모 힌트용) ─────────────────────────────
+const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const JUNG = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+const JONG = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const DECOMPOSE = {
+  ㄲ: ['ㄱ','ㄱ'], ㄳ: ['ㄱ','ㅅ'], ㄵ: ['ㄴ','ㅈ'], ㄶ: ['ㄴ','ㅎ'],
+  ㄺ: ['ㄹ','ㄱ'], ㄻ: ['ㄹ','ㅁ'], ㄼ: ['ㄹ','ㅂ'], ㄽ: ['ㄹ','ㅅ'],
+  ㄾ: ['ㄹ','ㅌ'], ㄿ: ['ㄹ','ㅍ'], ㅀ: ['ㄹ','ㅎ'], ㅄ: ['ㅂ','ㅅ'],
+  ㅆ: ['ㅅ','ㅅ'], ㅘ: ['ㅗ','ㅏ'], ㅙ: ['ㅗ','ㅐ'], ㅚ: ['ㅗ','ㅣ'],
+  ㅝ: ['ㅜ','ㅓ'], ㅞ: ['ㅜ','ㅔ'], ㅟ: ['ㅜ','ㅣ'], ㅢ: ['ㅡ','ㅣ'],
+};
+
 export function decomposeSyllable(ch) {
   if (!ch) return null;
   const code = ch.charCodeAt(0) - 0xac00;
-  if (code < 0 || code > 11171) {
-    // 음절 범위 밖 (공백, 한자, 호환 자모 등) — 그대로 반환
-    return { type: 'literal', char: ch };
-  }
+  if (code < 0 || code > 11171) return { type: 'literal', char: ch };
   const choIdx = Math.floor(code / (21 * 28));
   const jungIdx = Math.floor((code % (21 * 28)) / 28);
   const jongIdx = code % 28;
@@ -90,11 +60,10 @@ export function decomposeSyllable(ch) {
     type: 'syllable',
     cho: CHO[choIdx],
     jung: JUNG[jungIdx],
-    jong: JONG[jongIdx], // '' 가능
+    jong: JONG[jongIdx],
   };
 }
 
-// 자모를 입력 순서대로 평탄화 (복합 자모는 분해)
 export function flattenJamo(syllable) {
   if (!syllable || syllable.type !== 'syllable') return [];
   const out = [];
@@ -107,61 +76,37 @@ export function flattenJamo(syllable) {
       out.push(jamo);
     }
   };
-  push(syllable.cho);
-  push(syllable.jung);
-  push(syllable.jong);
+  push(syllable.cho); push(syllable.jung); push(syllable.jong);
   return out;
 }
 
-// 조합 중 음절(composing)이 target 음절의 어디까지 진행됐는지 인덱스 반환
-export function progressInTarget(targetSyl, composingSyl) {
-  if (!targetSyl || targetSyl.type !== 'syllable') return 0;
-  if (!composingSyl || composingSyl.type !== 'syllable') return 0;
-  const targetSeq = flattenJamo(targetSyl);
-  const compSeq = flattenJamo(composingSyl);
-  // 가장 단순: prefix 매칭 길이
-  let i = 0;
-  while (
-    i < targetSeq.length &&
-    i < compSeq.length &&
-    targetSeq[i] === compSeq[i]
-  ) {
-    i += 1;
-  }
-  return i;
-}
-
-// 다음 입력해야 할 자모 (없으면 null = 음절 완성 직전)
+// 다음에 입력해야 할 자모/키 — 화면 하이라이트용
 export function nextJamo(targetChar, composingChar) {
   if (!targetChar) return null;
-  // 공백/한자 등은 그 글자 자체가 키
   if (targetChar === ' ') return { key: 'SPACE', shift: false };
   const t = decomposeSyllable(targetChar);
   if (!t || t.type !== 'syllable') return null;
   const c = composingChar ? decomposeSyllable(composingChar) : null;
   const targetSeq = flattenJamo(t);
   const compSeq = c ? flattenJamo(c) : [];
-  // prefix 위치
   let i = 0;
-  while (
-    i < targetSeq.length &&
-    i < compSeq.length &&
-    targetSeq[i] === compSeq[i]
-  ) {
-    i += 1;
-  }
+  while (i < targetSeq.length && i < compSeq.length && targetSeq[i] === compSeq[i]) i += 1;
   if (i >= targetSeq.length) return null;
   const jamo = targetSeq[i];
   const map = JAMO_TO_KEY[jamo];
   if (!map) return null;
-  return { key: map[0], shift: map[1], jamo };
+  return { key: map.key, shift: map.shift, jamo };
 }
 
-// ─── 키보드 렌더 ──────────────────────────────────────────────
+// ─── 인터랙티브 키보드 ────────────────────────────────────────
 export class Keyboard {
-  constructor(root) {
+  // onTap({ type: 'jamo'|'space'|'backspace', jamo?, key? })
+  constructor(root, { onTap, interactive = true } = {}) {
     this.root = root;
-    this.keyEls = new Map(); // key (e.g., 'Q') → element
+    this.onTap = onTap;
+    this.interactive = interactive;
+    this.keyEls = new Map();
+    this.shiftDown = false;
     this._render();
   }
 
@@ -171,36 +116,34 @@ export class Keyboard {
       const rowEl = document.createElement('div');
       rowEl.className = 'kb-row';
       row.forEach(([key, jamo, shiftJamo]) => {
-        const el = document.createElement('div');
+        const el = document.createElement('button');
+        el.type = 'button';
         el.className = 'kb-key';
+        el.dataset.key = key;
         if (key === 'SPACE') el.classList.add('space');
-        if (key === 'SHIFT') el.classList.add('wide');
+        if (key === 'SHIFT') el.classList.add('mod');
+        if (key === 'BACKSPACE') el.classList.add('mod');
 
-        if (shiftJamo) {
+        // 자모 라벨
+        const j = document.createElement('span');
+        j.className = 'kb-jamo';
+        j.textContent = jamo || (key === 'SPACE' ? '간격' : key);
+        el.appendChild(j);
+
+        // 영문/Shift 보조 표기 (PC 힌트용)
+        if (key !== 'SPACE' && key !== 'SHIFT' && key !== 'BACKSPACE') {
           const s = document.createElement('span');
-          s.className = 'kb-shift';
-          s.textContent = shiftJamo;
-          el.appendChild(s);
-        } else if (key !== 'SPACE' && key !== 'SHIFT') {
-          // 균형용 빈 공간
-          const s = document.createElement('span');
-          s.className = 'kb-shift';
-          s.textContent = ' ';
+          s.className = 'kb-sub';
+          s.textContent = shiftJamo || key;
           el.appendChild(s);
         }
 
-        const j = document.createElement('span');
-        j.className = 'kb-jamo';
-        if (key === 'SPACE') j.textContent = 'space';
-        else if (key === 'SHIFT') j.textContent = '⇧ shift';
-        else j.textContent = jamo || key;
-        el.appendChild(j);
-
-        if (key !== 'SPACE' && key !== 'SHIFT') {
-          const k = document.createElement('span');
-          k.className = 'kb-shift';
-          k.textContent = key;
-          el.appendChild(k);
+        if (this.interactive) {
+          // pointerdown으로 받아 즉시 반응 (click의 ~300ms 지연 회피)
+          el.addEventListener('pointerdown', (ev) => {
+            ev.preventDefault();
+            this._handleTap(key, jamo, shiftJamo);
+          });
         }
 
         this.keyEls.set(key, el);
@@ -210,28 +153,71 @@ export class Keyboard {
     });
   }
 
-  clearHints() {
-    this.keyEls.forEach((el) => {
-      el.classList.remove('next', 'shift-hint');
+  _handleTap(key, jamo, shiftJamo) {
+    // 시각 피드백
+    const el = this.keyEls.get(key);
+    if (el) {
+      el.classList.add('pressed');
+      setTimeout(() => el.classList.remove('pressed'), 90);
+    }
+
+    if (key === 'SHIFT') {
+      this.shiftDown = !this.shiftDown;
+      this._refreshShiftVisual();
+      return;
+    }
+    if (key === 'SPACE') {
+      this.onTap && this.onTap({ type: 'space' });
+      return;
+    }
+    if (key === 'BACKSPACE') {
+      this.onTap && this.onTap({ type: 'backspace' });
+      return;
+    }
+    let emit = jamo;
+    if (this.shiftDown && shiftJamo) emit = shiftJamo;
+    this.onTap && this.onTap({ type: 'jamo', jamo: emit });
+    // 한 글자 입력 후 shift 자동 해제 (모바일 표준)
+    if (this.shiftDown) {
+      this.shiftDown = false;
+      this._refreshShiftVisual();
+    }
+  }
+
+  _refreshShiftVisual() {
+    const sh = this.keyEls.get('SHIFT');
+    if (!sh) return;
+    if (this.shiftDown) sh.classList.add('active');
+    else sh.classList.remove('active');
+    // 키 라벨도 shift 적용 표시
+    this.keyEls.forEach((el, key) => {
+      const isLetter = key.length === 1;
+      if (!isLetter) return;
+      const jamoEl = el.querySelector('.kb-jamo');
+      if (!jamoEl) return;
+      // 데이터에서 원래 자모를 다시 찾아 표기
+      const row = ROWS.flat().find((r) => r[0] === key);
+      if (!row) return;
+      const [, j, sj] = row;
+      jamoEl.textContent = this.shiftDown && sj ? sj : j;
     });
   }
 
-  highlight({ key, shift }) {
-    this.clearHints();
-    if (!key) return;
-    const el = this.keyEls.get(key);
+  // 다음에 칠 자모 하이라이트 (PC에서 유용)
+  highlight(hint) {
+    this.keyEls.forEach((el) => el.classList.remove('next', 'shift-hint'));
+    if (!hint || !hint.key) return;
+    const el = this.keyEls.get(hint.key);
     if (el) el.classList.add('next');
-    if (shift) {
+    if (hint.shift) {
       const sh = this.keyEls.get('SHIFT');
       if (sh) sh.classList.add('shift-hint');
     }
   }
 
-  // 실제 키 입력 시각 피드백 (살짝 눌림)
-  pressByJamo(jamo) {
-    const map = JAMO_TO_KEY[jamo];
-    if (!map) return;
-    const el = this.keyEls.get(map[0]);
+  // 물리 키보드 입력 시 키 시각 피드백 (PC)
+  pressByKey(keyCode) {
+    const el = this.keyEls.get(keyCode);
     if (!el) return;
     el.classList.add('pressed');
     setTimeout(() => el.classList.remove('pressed'), 90);
