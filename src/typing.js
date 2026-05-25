@@ -375,50 +375,44 @@ export class TypingSession {
   // ─── 가상 키보드 API (모바일 메인 입력 경로) ────────────────────
   // 시스템 IME를 우회하고, 탭마다 명시적으로 자모/공백/백스페이스를 받음.
   // 천지인 같은 비표준 키보드의 변환 문제를 원천 차단.
+  // 가상 키보드 입력은 모두 동기 렌더 (_emit) — rAF 16ms 지연 제거해 탭 반응 즉시
   virtualInputJamo(jamo) {
     const completed = this._automaton.input(jamo);
     if (completed) this._commit(completed);
     this.composing = this._automaton.composing;
-    this._scheduleRender();
+    this._emit();
   }
 
   virtualSpace() {
     const target = this.lines[this.lineIndex] || '';
-    // 라인 완성 → advance
     if (this.committed === target && target.length > 0) {
       this._advanceLine();
-      this._scheduleRender();
+      this._emit();
       return;
     }
-    // composing 합치면 라인 완성 → force commit + advance
     const autoComp = this._automaton.composing;
     if (autoComp && this.committed + autoComp === target) {
       const flushed = this._automaton.flush();
       this._commit(flushed);
-      this._scheduleRender();
+      this._emit();
       return;
     }
-    // 그 외 — 음절 미완성이면 강제 flush 후 공백 commit
     const pending = this._automaton.flush();
     if (pending) this._commit(pending);
     this.composing = '';
     this._commit(' ');
-    this._scheduleRender();
+    this._emit();
   }
 
   virtualBackspace() {
-    // 1) 오토마타에 미완성 음절이 있으면 자모 한 개만 제거 (두벌식 표준)
     if (this._automaton.backspace()) {
       this.composing = this._automaton.composing;
-      this._scheduleRender();
+      this._emit();
       return;
     }
-    // 2) 비어있으면 committed 마지막 글자 롤백
     if (this.committed.length === 0) return;
     this._popLast();
-    // committed 마지막을 다시 오토마타에 복원해서 한 자모씩 마저 지울 수도 있지만
-    // 데모에선 너무 복잡 — 음절 단위 통째 삭제로 충분.
-    this._scheduleRender();
+    this._emit();
   }
 
   _commit(str) {

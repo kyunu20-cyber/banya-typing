@@ -726,8 +726,11 @@ body {
   justify-content: center;
   gap: 1px;
   font-weight: 500;
-  transition: transform 50ms ease, background 100ms ease, border-color 100ms ease;
+  /* transition 없음 — 탭 반응 즉시 */
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .kb-key.pressed,
@@ -735,7 +738,6 @@ body {
   background: var(--gold);
   color: var(--bg-card);
   border-color: var(--gold);
-  transform: translateY(1px);
 }
 
 .kb-key.next {
@@ -934,6 +936,14 @@ body {
   .modal-title { font-size: 20px; }
   .modal-score-value { font-size: 22px; }
 
+  /* 모바일에선 본문 글자 색 전환 즉시 — 누른 직후 검정으로 바로 바뀜 */
+  .typing-area .ch {
+    transition: none;
+  }
+  .typing-area .ch.bad {
+    /* 흔들림 애니메이션도 짧게 */
+    animation-duration: 80ms;
+  }
   /* 가상 키보드 — 모바일에서 메인 입력이므로 크게 */
   .virtual-keyboard {
     position: sticky;
