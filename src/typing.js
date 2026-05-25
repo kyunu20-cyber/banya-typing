@@ -265,12 +265,12 @@ export class TypingSession {
         this._scheduleRender();
         return;
       }
-      // value에 자모 + 음절이 섞여 들어오는 멀티문자 케이스(드물지만 대비)
-      let mixedAndJamo = false;
+      // value에 자모 + 음절이 섞여 들어오는 멀티문자 케이스
+      let hasJamo = false;
       for (const ch of v) {
-        if (isJamoChar(ch)) { mixedAndJamo = true; break; }
+        if (isJamoChar(ch)) { hasJamo = true; break; }
       }
-      if (mixedAndJamo) {
+      if (hasJamo) {
         for (const ch of v) {
           if (isJamoChar(ch)) {
             const c = this._automaton.input(ch);
@@ -286,7 +286,11 @@ export class TypingSession {
         return;
       }
 
-      // 일반 — 영문/완성 음절 등
+      // ⭐ 일반(영문/공백/완성 음절) — 오토마타에 미완성 음절 남아있으면 먼저 flush
+      //    이게 빠지면 모바일에서 "개공" 타이핑 직후 띄어쓰기 누르면 "공"이 사라짐
+      const pending = this._automaton.flush();
+      if (pending) this._commit(pending);
+      this.composing = '';
       this._commit(v);
       this._scheduleRender();
     });
