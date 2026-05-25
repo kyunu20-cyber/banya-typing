@@ -1,7 +1,7 @@
-import { sections } from './sutra.js?v=26';
-import { TypingSession } from './typing.js?v=26';
-import { Stats } from './stats.js?v=26';
-import { Mokak } from './mokak.js?v=26';
+import { sections } from './sutra.js?v=27';
+import { TypingSession } from './typing.js?v=27';
+import { Stats } from './stats.js?v=27';
+import { Mokak } from './mokak.js?v=27';
 
 // ── DOM ─────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);

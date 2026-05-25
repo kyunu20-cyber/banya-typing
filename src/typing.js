@@ -24,22 +24,134 @@
 //     - currentIndex 직접 ++/-- X (committed.length로만 도출)
 //     - composing을 committed에 합치는 어떤 처리도 X
 
-// 한글 음절 + 자모 → 받침 추가된 음절 (예: "애" + "ㄱ" → "액")
-// 합쳐서 만들 수 없으면 null. 이미 받침 있는 음절도 null.
-const JONG_LIST = [
-  '', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ',
-  'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ',
-  'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
-];
+// ─── 한글 자모 테이블 / 조립 유틸 ─────────────────────────────────
+const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const JUNG = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+const JONG = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const CHO_SET = new Set(CHO);
+const JUNG_SET = new Set(JUNG);
+const JONG_COMBINE_KEY = (a, b) => a + b;
+const JUNG_COMBINE = {
+  'ㅗㅏ':'ㅘ','ㅗㅐ':'ㅙ','ㅗㅣ':'ㅚ',
+  'ㅜㅓ':'ㅝ','ㅜㅔ':'ㅞ','ㅜㅣ':'ㅟ',
+  'ㅡㅣ':'ㅢ',
+};
+const JONG_COMBINE = {
+  'ㄱㅅ':'ㄳ','ㄴㅈ':'ㄵ','ㄴㅎ':'ㄶ',
+  'ㄹㄱ':'ㄺ','ㄹㅁ':'ㄻ','ㄹㅂ':'ㄼ','ㄹㅅ':'ㄽ',
+  'ㄹㅌ':'ㄾ','ㄹㅍ':'ㄿ','ㄹㅎ':'ㅀ','ㅂㅅ':'ㅄ',
+};
+const JONG_DECOMPOSE = {
+  'ㄳ':['ㄱ','ㅅ'],'ㄵ':['ㄴ','ㅈ'],'ㄶ':['ㄴ','ㅎ'],
+  'ㄺ':['ㄹ','ㄱ'],'ㄻ':['ㄹ','ㅁ'],'ㄼ':['ㄹ','ㅂ'],'ㄽ':['ㄹ','ㅅ'],
+  'ㄾ':['ㄹ','ㅌ'],'ㄿ':['ㄹ','ㅍ'],'ㅀ':['ㄹ','ㅎ'],'ㅄ':['ㅂ','ㅅ'],
+};
+function buildSyllable(cho, jung, jong = '') {
+  const c = CHO.indexOf(cho), j = JUNG.indexOf(jung), jo = JONG.indexOf(jong);
+  if (c < 0 || j < 0 || jo < 0) return cho + jung + jong;
+  return String.fromCharCode(0xac00 + c * 21 * 28 + j * 28 + jo);
+}
+function isJamoChar(ch) {
+  if (!ch || ch.length !== 1) return false;
+  const code = ch.charCodeAt(0);
+  return code >= 0x3131 && code <= 0x318e; // 호환 자모 영역
+}
+
+// 한글 음절 + 받침 자모 → 받침 추가된 음절 (예: "애" + "ㄱ" → "액"). 안 되면 null.
 function mergeJongseong(syllable, jamo) {
   if (!syllable || !jamo || syllable.length !== 1 || jamo.length !== 1) return null;
   const code = syllable.charCodeAt(0) - 0xac00;
   if (code < 0 || code > 11171) return null;
   const jong = code % 28;
-  if (jong !== 0) return null; // 이미 받침 있음
-  const idx = JONG_LIST.indexOf(jamo);
+  if (jong !== 0) return null;
+  const idx = JONG.indexOf(jamo);
   if (idx <= 0) return null;
   return String.fromCharCode(0xac00 + code + idx);
+}
+
+// ─── 두벌식 오토마타 ──────────────────────────────────────────────
+// 일부 모바일 키보드(Gboard, 삼성 등)는 한글 composition 이벤트를 안 거치고
+// 자모(ㄱ, ㅗ, ㅏ, ㄴ)를 input 이벤트로 하나씩 쏴서 ㄱㅗㅏㄴ처럼 풀려 보임.
+// 자모가 들어오면 여기서 음절로 조립한다.
+class HangulAutomaton {
+  constructor() { this.reset(); }
+  reset() { this.cho = ''; this.jung = ''; this.jong = ''; }
+
+  // 현재 조립 중인 음절 (시각 미리보기용)
+  get composing() {
+    if (this.cho && this.jung) return buildSyllable(this.cho, this.jung, this.jong);
+    if (this.cho) return this.cho;
+    if (this.jung) return this.jung;
+    return '';
+  }
+
+  // 자모 입력 → 확정된 음절(있다면) 반환. 미확정은 composing으로 남음.
+  input(ch) {
+    const isC = CHO_SET.has(ch);
+    const isJ = JUNG_SET.has(ch);
+    if (!isC && !isJ) return this.flush() + ch; // 자모 아니면 강제 확정 후 그대로
+
+    // [빈 상태]
+    if (!this.cho && !this.jung) {
+      if (isC) { this.cho = ch; return ''; }
+      this.jung = ch; return '';
+    }
+    // [cho만]
+    if (this.cho && !this.jung) {
+      if (isJ) { this.jung = ch; return ''; }
+      const out = this.cho; this.cho = ch; return out;
+    }
+    // [cho + jung, jong 없음]
+    if (this.cho && this.jung && !this.jong) {
+      if (isJ) {
+        const combined = JUNG_COMBINE[this.jung + ch];
+        if (combined) { this.jung = combined; return ''; }
+        const out = buildSyllable(this.cho, this.jung);
+        this.cho = ''; this.jung = ch; this.jong = '';
+        return out;
+      }
+      // 자음 → 종성 후보 (단, ㄸ/ㅃ/ㅉ은 종성 불가)
+      if (JONG.indexOf(ch) > 0) { this.jong = ch; return ''; }
+      const out = buildSyllable(this.cho, this.jung);
+      this.cho = ch; this.jung = ''; this.jong = '';
+      return out;
+    }
+    // [cho + jung + jong]
+    if (this.cho && this.jung && this.jong) {
+      if (isJ) {
+        // 종성을 다음 음절 초성으로 이동. 복합 종성이면 마지막 자모만.
+        let movingCho;
+        const decomp = JONG_DECOMPOSE[this.jong];
+        if (decomp) { movingCho = decomp[1]; this.jong = decomp[0]; }
+        else { movingCho = this.jong; this.jong = ''; }
+        const out = buildSyllable(this.cho, this.jung, this.jong);
+        this.cho = movingCho; this.jung = ch; this.jong = '';
+        return out;
+      }
+      // 자음 → 복합 종성 시도
+      const combined = JONG_COMBINE[this.jong + ch];
+      if (combined) { this.jong = combined; return ''; }
+      const out = buildSyllable(this.cho, this.jung, this.jong);
+      this.cho = ch; this.jung = ''; this.jong = '';
+      return out;
+    }
+    // [jung만]
+    if (!this.cho && this.jung) {
+      if (isJ) {
+        const combined = JUNG_COMBINE[this.jung + ch];
+        if (combined) { this.jung = combined; return ''; }
+        const out = this.jung; this.jung = ch; return out;
+      }
+      const out = this.jung; this.cho = ch; this.jung = ''; return out;
+    }
+    return '';
+  }
+
+  flush() {
+    const out = this.composing;
+    this.reset();
+    return out;
+  }
 }
 
 export class TypingSession {
@@ -64,6 +176,7 @@ export class TypingSession {
 
     this._rafId = 0;
     this._skipPendingEnd = null; // 강제 commit 후 IME가 뒤늦게 fire하는 compositionend 무시용
+    this._automaton = new HangulAutomaton(); // 모바일 자모-단위 입력 대응
     this._bind();
   }
 
@@ -137,14 +250,43 @@ export class TypingSession {
     });
 
     el.addEventListener('input', (e) => {
-      // 조합 중 input 이벤트는 무시 (IME가 처리)
       if (e.isComposing || this.isComposing) return;
 
       const v = el.value;
-      // compositionend에서 우리가 비워 둔 직후 fire되는 빈 input 이벤트
       if (v === '') return;
-
       el.value = '';
+
+      // ⭐ 모바일 일부 키보드가 자모를 그대로 쏘는 경우 (ㄱㅗㅏㄴ 같은 증상)
+      //    → 오토마타에 흘려보내 음절로 조립
+      if (v.length === 1 && isJamoChar(v)) {
+        const completed = this._automaton.input(v);
+        if (completed) this._commit(completed);
+        this.composing = this._automaton.composing;
+        this._scheduleRender();
+        return;
+      }
+      // value에 자모 + 음절이 섞여 들어오는 멀티문자 케이스(드물지만 대비)
+      let mixedAndJamo = false;
+      for (const ch of v) {
+        if (isJamoChar(ch)) { mixedAndJamo = true; break; }
+      }
+      if (mixedAndJamo) {
+        for (const ch of v) {
+          if (isJamoChar(ch)) {
+            const c = this._automaton.input(ch);
+            if (c) this._commit(c);
+          } else {
+            const flushed = this._automaton.flush();
+            if (flushed) this._commit(flushed);
+            this._commit(ch);
+          }
+        }
+        this.composing = this._automaton.composing;
+        this._scheduleRender();
+        return;
+      }
+
+      // 일반 — 영문/완성 음절 등
       this._commit(v);
       this._scheduleRender();
     });
@@ -162,16 +304,21 @@ export class TypingSession {
           return;
         }
 
-        // composing 합치면 일치 — 즉시 직접 commit (blur 안 함, 빠름)
-        if (
-          this.composing &&
-          this.committed + this.composing === target
-        ) {
+        // 오토마타에 남은 composing도 고려 (모바일 자모 입력 케이스)
+        const autoComp = this._automaton.composing;
+        const eff = autoComp || this.composing;
+        if (eff && this.committed + eff === target) {
           e.preventDefault();
-          this._forceCommitTail(this.composing);
+          if (autoComp) {
+            const flushed = this._automaton.flush();
+            this._commit(flushed);
+            this._scheduleRender();
+          } else {
+            this._forceCommitTail(this.composing);
+          }
           return;
         }
-        return; // 그 외엔 평소 input으로 처리
+        return;
       }
 
       // ── Backspace: input이 빈 상태에서만 committed 롤백 ──
@@ -243,7 +390,7 @@ export class TypingSession {
     this.composing = '';
     this.judges = [];
     this.inputEl.value = '';
-    // blur로 강제 finalize한 경우를 위해 즉시 재포커스 (다음 라인 입력 끊김 방지)
+    this._automaton.reset();
     this.inputEl.focus();
   }
 
@@ -280,6 +427,7 @@ export class TypingSession {
     this.totalCorrect = 0;
     this.totalWrong = 0;
     this.firstKeyAt = null;
+    this._automaton.reset();
     this.inputEl.value = '';
     this.inputEl.focus();
     this._emit();

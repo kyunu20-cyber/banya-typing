@@ -685,6 +685,38 @@ body {
   font-weight: 600;
 }
 
+.intro-hero { text-align: center; padding-top: 4px; }
+.intro-lead {
+  font-family: var(--font-han);
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--ink);
+}
+.intro-lead b { color: var(--gold); font-weight: 700; }
+
+.intro-list-clean { list-style: none; padding-left: 0; }
+.intro-list-clean li {
+  padding: 4px 0 4px 18px;
+  position: relative;
+  font-size: 13.5px;
+}
+.intro-list-clean li::before {
+  content: '·';
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.intro-hint {
+  margin-top: 10px !important;
+  font-size: 11px !important;
+  color: var(--bronze) !important;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
 /* 모드 선택 버튼 (인트로) */
 .intro-modes {
   display: flex;
