@@ -1,0 +1,682 @@
+/* ===== Tokens ===== */
+:root {
+  --bg: #f7f4ee;
+  --bg-card: #fffdf8;
+  --ink: #1c1a17;
+  --ink-soft: #4a443c;
+  --ink-faint: #b9b2a5;
+  --ink-ghost: #d6cfc1;
+  --gold: #b8860b;
+  --gold-soft: #d9b65a;
+  --bronze: #8b7d6b;
+  --red: #c0392b;
+  --line: #e6e0d2;
+  --shadow-sm: 0 1px 2px rgba(28, 26, 23, 0.05);
+  --shadow-md: 0 6px 24px rgba(28, 26, 23, 0.08);
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  --font-han:
+    'Nanum Myeongjo', '궁서체', 'Gungsuh', 'Gungseo', 'Batang', serif;
+  --font-ui:
+    'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Pretendard',
+    'Apple SD Gothic Neo', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 28px 40px 48px;
+}
+
+/* ===== Stage ===== */
+.stage {
+  width: min(1100px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+/* ===== Topbar (typing.works 스타일 — 평평하게) ===== */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.brand-hanja {
+  font-family: var(--font-han);
+  font-weight: 800;
+  font-size: 26px;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+.brand-han {
+  font-size: 12px;
+  color: var(--bronze);
+  letter-spacing: 0.08em;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mini-select,
+.mini-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 6px 4px;
+  text-transform: uppercase;
+  transition: color 150ms ease;
+}
+
+.mini-select {
+  padding-right: 18px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%238b7d6b' d='M1 3l4 4 4-4z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 2px center;
+}
+
+.mini-select:hover,
+.mini-btn:hover {
+  color: var(--ink);
+}
+
+.mini-select:focus-visible,
+.mini-btn:focus-visible {
+  outline: none;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mini-btn .icon {
+  font-size: 13px;
+}
+
+.mini-btn[aria-pressed='true'] {
+  color: var(--ink);
+}
+
+.mini-btn[aria-pressed='true'] .icon {
+  filter: none;
+}
+
+.mini-btn.ghost {
+  opacity: 0.6;
+}
+.mini-btn.ghost:hover {
+  opacity: 1;
+}
+
+/* ===== Reading (typing.works — 평평한 영역) ===== */
+.reading {
+  background: transparent;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.reading-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0;
+}
+
+.reading-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 0;
+  width: 100%;
+}
+
+.reading-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+#section-title {
+  font-family: var(--font-han);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.hanja-small {
+  font-family: var(--font-han);
+  font-size: 12px;
+  color: var(--bronze);
+  letter-spacing: 0.06em;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.progress-bar {
+  width: 140px;
+  height: 6px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--gold-soft), var(--gold));
+  border-radius: 999px;
+  transition: width 200ms ease;
+}
+
+.progress-text {
+  font-size: 11px;
+  color: var(--bronze);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Typing area (typing.works 매커니즘) ===== */
+.typing-area {
+  font-family: var(--font-han);
+  font-size: 48px;
+  line-height: 1.7;
+  letter-spacing: 0.005em;
+  padding: 28px 8px 24px;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  color: var(--ink-ghost);
+  min-height: 6em;
+  user-select: none;
+  font-weight: 400;
+}
+
+.typing-area .ch {
+  /* ⭐ 모든 글자 동일 weight·동일 cell — 가이드↔정타 색만 바뀌어도 위치 안 밀림 */
+  display: inline-block;
+  position: relative;
+  color: var(--ink-ghost);
+  font-weight: 700;
+  min-width: 1em; /* 한글은 정사각, 영문/공백도 1em으로 강제 */
+  text-align: center;
+  transition: color 140ms ease;
+}
+
+/* 공백은 cell 폭 강제 X — pre-wrap이 자연스럽게 처리 */
+.typing-area .ch.space {
+  min-width: 0.4em;
+}
+
+/* 정타 — 검은 먹색 (transition으로만 부드럽게, 튀는 모션 X) */
+.typing-area .ch.ok {
+  color: var(--ink);
+}
+
+/* 오타 — 빨강 (살짝만 흔들림) */
+.typing-area .ch.bad {
+  color: var(--red);
+  animation: ch-nudge 160ms ease-out;
+}
+
+/* IME 조합 중 음절 미리보기 */
+.typing-area .ch.pending {
+  color: var(--ink-soft);
+}
+
+/* 현재 칠 차례 글자 — 글자 앞에 깜빡이는 세로 커서 + 위쪽에 작은 hook */
+.typing-area .ch.current::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 12%;
+  bottom: 8%;
+  width: 3px;
+  background: var(--ink);
+  animation: blink 1s steps(1, end) infinite;
+}
+
+.typing-area .ch.current::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 12%;
+  width: 12px;
+  height: 3px;
+  background: var(--ink);
+  animation: blink 1s steps(1, end) infinite;
+}
+
+@keyframes blink {
+  50% {
+    background: transparent;
+  }
+}
+
+/* 오타 — 아주 살짝 좌우 nudge (이전 큰 흔들림 → 1px 두 번) */
+@keyframes ch-nudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-1px); }
+}
+
+/* hidden input — typing-area 위에 같은 폰트 사이즈의 투명 오버레이
+ * 이유: macOS 한글 IME 후보창은 input 좌표 기준으로 뜨므로
+ *   - 화면 좌상단 (0,0) 고정 → 후보창이 엉뚱한 곳에 뜸
+ *   - z-index: -1 → body 배경 뒤로 가서 일부 환경에서 포커스 불안정
+ *   - opacity: 0.01 → "거의 안 보이는 입력"으로 판단해 IME 우선순위 낮춤
+ * 해결: 부모(.reading)에 position:relative, input은 typing 영역 위에 깔되 시각적으론 0
+ */
+.reading {
+  position: relative;
+}
+
+.typing-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  /* 폰트 사이즈를 본문과 맞춰야 IME 후보창이 본문 글자 근처에 뜸 */
+  font-family: var(--font-han);
+  font-size: 48px;
+  /* 클릭은 받지 않음 — 빈 영역 클릭 시 main.js의 document.click이 focus 잡음 */
+  pointer-events: none;
+}
+
+/* ===== Meaning ===== */
+.meaning {
+  border-left: 3px solid var(--gold);
+  background: rgba(184, 134, 11, 0.05);
+  padding: 14px 18px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  overflow: hidden;
+  animation: meaning-in 220ms ease-out;
+}
+
+@keyframes meaning-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.meaning-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+
+.meaning-text {
+  margin: 0;
+  font-family: var(--font-han);
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
+
+/* ===== Stats footer (평평하게) ===== */
+.stats {
+  display: flex;
+  gap: 32px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--bronze);
+}
+
+.stat-value {
+  font-family: var(--font-han);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-unit {
+  font-size: 12px;
+  color: var(--bronze);
+}
+
+/* ===== Modal ===== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 26, 23, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+  animation: fade-in 200ms ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 60px rgba(28, 26, 23, 0.25);
+  padding: 32px 36px 28px;
+  max-width: 520px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: rise-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+.modal-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.modal-title {
+  margin: 0;
+  font-family: var(--font-han);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.modal-scores {
+  display: flex;
+  gap: 24px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-score {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal-score-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--bronze);
+}
+
+.modal-score-value {
+  font-family: var(--font-han);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.modal-score-best {
+  font-size: 11px;
+  color: var(--bronze);
+}
+
+.modal-meaning {
+  margin: 0;
+  font-family: var(--font-han);
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  padding: 4px 0 4px 14px;
+  border-left: 3px solid var(--gold);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg-card);
+  color: var(--ink-soft);
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.btn:hover {
+  border-color: var(--gold-soft);
+  color: var(--ink);
+}
+
+.btn-primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg-card);
+}
+
+.btn-primary:hover {
+  background: #000;
+  color: var(--bg-card);
+  border-color: #000;
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+/* ===== Intro (반야심경 소개 + 게임 설명) ===== */
+.intro {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 26, 23, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  z-index: 100;
+  animation: fade-in 240ms ease-out;
+}
+
+.intro[hidden] {
+  display: none;
+}
+
+.intro-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: 0 32px 80px rgba(28, 26, 23, 0.3);
+  padding: 44px 52px 36px;
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: rise-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.intro-eyebrow {
+  font-family: var(--font-han);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.intro-title {
+  margin: 0 0 6px;
+  text-align: center;
+  font-family: var(--font-han);
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: 0.03em;
+}
+
+.intro-sub {
+  text-align: center;
+  margin: 0 0 28px;
+  font-size: 13px;
+  color: var(--bronze);
+  letter-spacing: 0.05em;
+}
+
+.intro-section {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+
+.intro-section:first-of-type {
+  border-top: none;
+  padding-top: 8px;
+}
+
+.intro-h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-han);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+.intro-section p,
+.intro-list {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
+
+.intro-list {
+  padding-left: 1.1em;
+}
+
+.intro-list li {
+  margin: 4px 0;
+}
+
+.intro-list b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.intro-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.intro-skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--bronze);
+  cursor: pointer;
+}
+
+.intro-skip input {
+  accent-color: var(--gold);
+}
+
+.intro-start {
+  padding: 12px 28px;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}

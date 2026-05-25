@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>般若心經 · 반야심경 타자</title>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css?v=6" />
+  </head>
+  <body>
+    <main class="stage">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-hanja">般若心經</span>
+          <span class="brand-han">반야심경 타자</span>
+        </div>
+        <nav class="controls">
+          <select id="mode-select" class="mini-select" aria-label="모드">
+            <option value="sentence">한 문장</option>
+            <option value="short" selected>짧은 글</option>
+            <option value="long">긴 글</option>
+          </select>
+          <select id="section-select" class="mini-select" aria-label="섹션"></select>
+          <button id="meaning-toggle" class="mini-btn" type="button" aria-pressed="false" title="뜻 보기 (Tab)">
+            <span class="icon">📜</span><span>뜻</span>
+          </button>
+          <button id="sound-toggle" class="mini-btn" type="button" aria-pressed="true" title="목탁 소리">
+            <span class="icon">🔔</span><span>목탁</span>
+          </button>
+          <button id="restart-btn" class="mini-btn ghost" type="button" title="처음으로">
+            <span class="icon">↺</span>
+          </button>
+        </nav>
+      </header>
+
+      <section class="reading">
+        <div class="reading-head">
+          <div class="reading-title">
+            <span id="section-title">사리자 ① — 오온개공</span>
+            <span id="section-hanja" class="hanja-small">舍利子 色不異空 空不異色</span>
+          </div>
+          <div class="progress">
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <div id="progress-text" class="progress-text">0 / 0</div>
+          </div>
+        </div>
+
+        <hr class="reading-divider" />
+
+        <div id="typing-area" class="typing-area"></div>
+
+        <input
+          id="typing-input"
+          class="typing-input"
+          type="text"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-label="타이핑 입력"
+        />
+
+        <aside id="meaning" class="meaning" hidden>
+          <div class="meaning-label">뜻</div>
+          <p id="meaning-text" class="meaning-text"></p>
+        </aside>
+      </section>
+
+      <footer class="stats">
+        <div class="stat">
+          <span class="stat-label">분당 타수</span>
+          <span id="stat-wpm" class="stat-value">0</span>
+          <span class="stat-unit">타</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">정확도</span>
+          <span id="stat-acc" class="stat-value">100</span>
+          <span class="stat-unit">%</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">최고</span>
+          <span id="stat-best" class="stat-value">— 타 / —%</span>
+        </div>
+      </footer>
+    </main>
+
+    <div id="intro" class="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+      <div class="intro-card">
+        <div class="intro-eyebrow">般若波羅蜜多心經</div>
+        <h1 class="intro-title" id="intro-title">반야심경 타자</h1>
+        <p class="intro-sub">부처님 오신 날 · 마음으로 새기는 260자</p>
+
+        <section class="intro-section">
+          <h2 class="intro-h2">반야심경이란</h2>
+          <p>
+            『반야바라밀다심경(般若波羅蜜多心經)』은 600권에 달하는 방대한 반야경 전체의
+            정수를 단 260여 자로 압축한 경전입니다. 동아시아 불교에서 가장 널리 외워지는
+            짧고도 깊은 경으로, "공(空)"의 가르침을 통해 모든 괴로움에서 벗어나는 길을
+            보입니다.
+          </p>
+        </section>
+
+        <section class="intro-section">
+          <h2 class="intro-h2">이렇게 진행됩니다</h2>
+          <ul class="intro-list">
+            <li>본문이 옅은 회색으로 보이면, 한 글자씩 따라 치면 검정으로 채워집니다.</li>
+            <li>한 음절을 완성할 때마다 목탁 소리가 한 번 울립니다.</li>
+            <li>오타는 붉게, Backspace로 지울 수 있습니다.</li>
+            <li>모드: <b>한 문장 / 짧은 글(섹션) / 긴 글(전체)</b> — 상단에서 선택.</li>
+            <li>의역이 궁금하면 <b>📜 뜻</b> 또는 <b>Tab</b> 키.</li>
+            <li>섹션을 다 채우면 결과가 뜨고, 다음 섹션으로 이어집니다.</li>
+          </ul>
+        </section>
+
+        <div class="intro-actions">
+          <label class="intro-skip">
+            <input type="checkbox" id="intro-dont-show" />
+            <span>다시 보지 않기</span>
+          </label>
+          <button id="intro-start" class="btn btn-primary intro-start" type="button">
+            시작하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="result-modal"
+      class="modal"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div class="modal-card">
+        <div class="modal-eyebrow" id="modal-eyebrow">섹션 완료</div>
+        <h2 class="modal-title" id="modal-title">사리자 ① — 오온개공</h2>
+        <div class="modal-scores">
+          <div class="modal-score">
+            <span class="modal-score-label">분당 타수</span>
+            <span id="modal-wpm" class="modal-score-value">0 타</span>
+            <span id="modal-wpm-best" class="modal-score-best">최고 — 타</span>
+          </div>
+          <div class="modal-score">
+            <span class="modal-score-label">정확도</span>
+            <span id="modal-acc" class="modal-score-value">0%</span>
+            <span id="modal-acc-best" class="modal-score-best">최고 —%</span>
+          </div>
+        </div>
+        <blockquote class="modal-meaning" id="modal-meaning"></blockquote>
+        <div class="modal-actions">
+          <button id="modal-retry" type="button" class="btn btn-ghost">
+            다시 하기
+          </button>
+          <button id="modal-next" type="button" class="btn btn-primary">
+            다음 섹션
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="src/main.js?v=23"></script>
+  </body>
+</html>
