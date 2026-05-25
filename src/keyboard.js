@@ -139,11 +139,27 @@ export class Keyboard {
         }
 
         if (this.interactive) {
-          // pointerdown으로 받아 즉시 반응 (click의 ~300ms 지연 회피)
-          el.addEventListener('pointerdown', (ev) => {
-            ev.preventDefault();
-            this._handleTap(key, jamo, shiftJamo);
-          });
+          // 터치: touchstart + passive (preventDefault 안 함 → iOS가 후속 터치 누락 안 시킴)
+          // 마우스/펜: pointerdown
+          // 더블 발화 방지 위해 디바이스별로 하나만.
+          const isTouch =
+            'ontouchstart' in window ||
+            (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+          if (isTouch) {
+            // passive: true 가 핵심 — iOS Safari는 preventDefault 호출되면
+            // 빠른 연타 시 2,3번째 touchstart를 묶거나 누락시킨다.
+            // 더블탭 줌은 .kb-key의 touch-action: manipulation으로 이미 막혀있음.
+            el.addEventListener(
+              'touchstart',
+              () => this._handleTap(key, jamo, shiftJamo),
+              { passive: true },
+            );
+          } else {
+            el.addEventListener('pointerdown', (ev) => {
+              ev.preventDefault();
+              this._handleTap(key, jamo, shiftJamo);
+            });
+          }
         }
 
         this.keyEls.set(key, el);

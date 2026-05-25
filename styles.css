@@ -731,7 +731,9 @@ body {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  outline: none; /* iOS click 합성 이벤트로 focus 들어와도 ring 안 보이게 */
 }
+.kb-key:focus { outline: none; }
 
 .kb-key.pressed,
 .kb-key:active {
